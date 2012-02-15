@@ -37,6 +37,7 @@ parse_config(const char *config_file, t_configuration_options *options)
 	memset(options->conninfo, 0, sizeof(options->conninfo));
 	options->failover = MANUAL_FAILOVER;
 	options->priority = 0;
+	memset(options->node_name, 0, sizeof(options->node_name));
 	memset(options->promote_command, 0, sizeof(options->promote_command));
 	memset(options->follow_command, 0, sizeof(options->follow_command));
 	memset(options->rsync_options, 0, sizeof(options->rsync_options));
@@ -91,6 +92,8 @@ parse_config(const char *config_file, t_configuration_options *options)
 		}
 		else if (strcmp(name, "priority") == 0)
 			options->priority = atoi(value);
+		else if (strcmp(name, "node_name") == 0)
+			strncpy(options->node_name, value, MAXLEN);
 		else if (strcmp(name, "promote_command") == 0)
 			strncpy(options->promote_command, value, MAXLEN);
 		else if (strcmp(name, "follow_command") == 0)
@@ -200,6 +203,12 @@ reload_configuration(char *config_file, t_configuration_options *orig_options)
 		return false;
 	}
 
+	if (new_options.node_name != orig_options->node_name)
+	{
+		log_warning(_("\nCannot change standby name, will keep current configuration.\n"));
+		return false;
+	}
+
 	if (new_options.failover != MANUAL_FAILOVER && new_options.failover != AUTOMATIC_FAILOVER)
 	{
 		log_warning(_("\nNew value for failover is not valid. Should be MANUAL or AUTOMATIC.\n"));
@@ -221,6 +230,7 @@ reload_configuration(char *config_file, t_configuration_options *orig_options)
 	strcpy(orig_options->conninfo, new_options.conninfo);
 	orig_options->failover = new_options.failover;
 	orig_options->priority = new_options.priority;
+	strcpy(orig_options->node_name, new_options.node_name);
 	strcpy(orig_options->promote_command, new_options.promote_command);
 	strcpy(orig_options->follow_command, new_options.follow_command);
 	strcpy(orig_options->rsync_options, new_options.rsync_options);

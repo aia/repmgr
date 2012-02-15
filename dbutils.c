@@ -73,7 +73,7 @@ bool
 is_standby(PGconn *conn)
 {
 	PGresult   *res;
-	bool		result;
+	bool		result = false;
 
 	res = PQexec(conn, "SELECT pg_is_in_recovery()");
 
@@ -86,9 +86,7 @@ is_standby(PGconn *conn)
 		exit(ERR_DB_QUERY);
 	}
 
-	if (strcmp(PQgetvalue(res, 0, 0), "f") == 0)
-		result = false;
-	else
+	if (PQntuples(res) == 1 && strcmp(PQgetvalue(res, 0, 0), "t") == 0)
 		result = true;
 
 	PQclear(res);
@@ -101,7 +99,7 @@ bool
 is_witness(PGconn *conn, char *schema, char *cluster, int node_id)
 {
 	PGresult   *res;
-	bool		result;
+	bool		result = false;
 	char		sqlquery[QUERY_STR_LEN];
 
 	sqlquery_snprintf(sqlquery, "SELECT witness from %s.repl_nodes where cluster = '%s' and id = %d",
@@ -115,9 +113,7 @@ is_witness(PGconn *conn, char *schema, char *cluster, int node_id)
 		exit(ERR_DB_QUERY);
 	}
 
-	if (strcmp(PQgetvalue(res, 0, 0), "f") == 0)
-		result = false;
-	else
+	if (PQntuples(res) == 1 && strcmp(PQgetvalue(res, 0, 0), "t") == 0)
 		result = true;
 
 	PQclear(res);
@@ -322,7 +318,7 @@ getMasterConnection(PGconn *standby_conn, char *schema, int id, char *cluster,
 	log_info(_("finding node list for cluster '%s'\n"),
 	         cluster);
 
-	sqlquery_snprintf(sqlquery, "SELECT * FROM %s.repl_nodes "
+	sqlquery_snprintf(sqlquery, "SELECT id, conninfo FROM %s.repl_nodes "
 	                  " WHERE cluster = '%s' and id <> %d and not witness",
 	                  schema_quoted, cluster, id);
 
@@ -340,7 +336,7 @@ getMasterConnection(PGconn *standby_conn, char *schema, int id, char *cluster,
 	{
 		/* initialize with the values of the current node being processed */
 		*master_id = atoi(PQgetvalue(res1, i, 0));
-		strncpy(master_conninfo, PQgetvalue(res1, i, 2), MAXCONNINFO);
+		strncpy(master_conninfo, PQgetvalue(res1, i, 1), MAXCONNINFO);
 		log_info(_("checking role of cluster node '%s'\n"),
 		         master_conninfo);
 		master_conn = establishDBConnection(master_conninfo, false);
